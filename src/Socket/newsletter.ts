@@ -121,20 +121,18 @@ export const makeNewsletterSocket = (config: SocketConfig) => {
 			return await newsletterUpdate(jid, { name })
 		},
 
-		newsletterUpdateDescription: async (jid: string, description: string) => {
-			return await newsletterUpdate(jid, { description })
-		},
+	newsletterUpdateDescription: async (jid: string, description: string) => {
+		return await newsletterUpdate(jid, { description })
+	},
 
-		newsletterUpdatePicture: async (jid: string, content: WAMediaUpload) => {
-			const { img } = await generateProfilePicture(content)
-			return await newsletterUpdate(jid, { picture: img.toString('base64') })
-		},
+	newsletterUpdatePicture: async (jid: string, content: WAMediaUpload) => {
+		const { img } = await generateProfilePicture(content, { width: 640, height: 640 })
+		return await newsletterUpdate(jid, { picture: img.toString('base64') })
+	},
 
-		newsletterRemovePicture: async (jid: string) => {
-			return await newsletterUpdate(jid, { picture: '' })
-		},
-
-		newsletterReactMessage: async (jid: string, serverId: string, reaction?: string) => {
+	newsletterRemovePicture: async (jid: string) => {
+		return await newsletterUpdate(jid, { picture: '' })
+	},		newsletterReactMessage: async (jid: string, serverId: string, reaction?: string) => {
 			await query({
 				tag: 'message',
 				attrs: {

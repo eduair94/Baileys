@@ -3,7 +3,7 @@ import { exec } from 'child_process'
 import * as Crypto from 'crypto'
 import { once } from 'events'
 import { createReadStream, createWriteStream, promises as fs, WriteStream } from 'fs'
-import Jimp from 'jimp'
+import { Jimp } from 'jimp'
 import type { IAudioMetadata } from 'music-metadata'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -117,36 +117,36 @@ const extractVideoThumb = async (
 		})
 	})
 
-// Replace with:
-export const extractImageThumb = async (bufferOrFilePath, width = 32) => {
-  if (bufferOrFilePath instanceof Readable) {
-    bufferOrFilePath = await toBuffer(bufferOrFilePath);
-  }
-  const image = await Jimp.read(bufferOrFilePath);
-  const dimensions = { width: image.bitmap.width, height: image.bitmap.height };
-  const resized = image.resize(width, Jimp.RESIZE_BILINEAR).quality(50);
-  const buffer = await resized.getBufferAsync(Jimp.MIME_JPEG);
-  return { buffer, original: dimensions };
+export const extractImageThumb = async (bufferOrFilePath: Buffer | string | Readable, width = 32) => {
+	if (bufferOrFilePath instanceof Readable) {
+		bufferOrFilePath = await toBuffer(bufferOrFilePath);
+	}
+	const image = await Jimp.read(bufferOrFilePath);
+	const dimensions = { width: image.bitmap.width, height: image.bitmap.height };
+	const targetHeight = Math.max(1, Math.round((dimensions.height / dimensions.width) * width));
+	const resized = image.resize({ w: width, h: targetHeight });
+	const buffer = await resized.getBuffer('image/jpeg', { quality: 50 });
+	return { buffer, original: dimensions };
 };
 
 export const encodeBase64EncodedStringForUpload = (b64: string) =>
 	encodeURIComponent(b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, ''))
 
-export const generateProfilePicture = async (mediaUpload, dimensions) => {
-  let buffer;
-  const { width: w = 640, height: h = 640 } = dimensions || {};
-  if (Buffer.isBuffer(mediaUpload)) {
-    buffer = mediaUpload;
-  } else {
-    const { stream } = await getStream(mediaUpload);
-    buffer = await toBuffer(stream);
-  }
-  const jimp = await Jimp.read(buffer);
-  const min = Math.min(jimp.bitmap.width, jimp.bitmap.height);
-  const cropped = jimp.crop(0, 0, min, min);
-  const resized = cropped.resize(w, h, Jimp.RESIZE_BILINEAR).quality(50);
-  const img = await resized.getBufferAsync(Jimp.MIME_JPEG);
-  return { img };
+export const generateProfilePicture = async (mediaUpload: WAMediaUpload, dimensions?: { width?: number; height?: number }) => {
+	let buffer: Buffer;
+	const { width: w = 640, height: h = 640 } = dimensions || {};
+	if (Buffer.isBuffer(mediaUpload)) {
+		buffer = mediaUpload;
+	} else {
+		const { stream } = await getStream(mediaUpload);
+		buffer = await toBuffer(stream);
+	}
+	const jimp = await Jimp.read(buffer);
+	const min = Math.min(jimp.bitmap.width, jimp.bitmap.height);
+	const cropped = jimp.crop({ x: 0, y: 0, w: min, h: min });
+	const resized = cropped.resize({ w, h });
+	const img = await resized.getBuffer('image/jpeg', { quality: 50 });
+	return { img };
 };
 
 /** gets the SHA256 of the given media message */
