@@ -31,6 +31,21 @@ import type { ILogger } from './logger'
 
 const getTmpFilesDirectory = () => tmpdir()
 
+const getImageProcessingLibrary = async () => {
+	//@ts-ignore
+	const [jimp, sharp] = await Promise.all([import('jimp').catch(() => {}), import('sharp').catch(() => {})])
+
+	if (sharp) {
+		return { sharp }
+	}
+
+	if (jimp) {
+		return { jimp }
+	}
+
+	throw new Boom('No image processing library available')
+}
+
 export const hkdfInfoKey = (type: MediaType) => {
 	const hkdfInfo = MEDIA_HKDF_KEY_MAPPING[type]
 	return `WhatsApp ${hkdfInfo} Keys`
@@ -307,7 +322,7 @@ export const getHttpStream = async (url: string | URL, options: RequestInit & { 
 	}
 
 	// @ts-ignore Node18+ Readable.fromWeb exists
-	return Readable.fromWeb(response.body as any)
+	return response.body instanceof Readable ? response.body : Readable.fromWeb(response.body as any)
 }
 
 type EncryptedStreamOptions = {
