@@ -3,55 +3,55 @@ import { Boom } from '@hapi/boom'
 import { proto } from '../../WAProto/index.js'
 import { DEFAULT_CACHE_TTLS, PROCESSABLE_HISTORY_TYPES } from '../Defaults'
 import type {
-	BotListInfo,
-	CacheStore,
-	ChatModification,
-	ChatMutation,
-	LTHashState,
-	MessageUpsertType,
-	PresenceData,
-	SocketConfig,
-	WABusinessHoursConfig,
-	WABusinessProfile,
-	WAMediaUpload,
-	WAMessage,
-	WAPatchCreate,
-	WAPatchName,
-	WAPresence,
-	WAPrivacyCallValue,
-	WAPrivacyGroupAddValue,
-	WAPrivacyMessagesValue,
-	WAPrivacyOnlineValue,
-	WAPrivacyValue,
-	WAReadReceiptsValue
+    BotListInfo,
+    CacheStore,
+    ChatModification,
+    ChatMutation,
+    LTHashState,
+    MessageUpsertType,
+    PresenceData,
+    SocketConfig,
+    WABusinessHoursConfig,
+    WABusinessProfile,
+    WAMediaUpload,
+    WAMessage,
+    WAPatchCreate,
+    WAPatchName,
+    WAPresence,
+    WAPrivacyCallValue,
+    WAPrivacyGroupAddValue,
+    WAPrivacyMessagesValue,
+    WAPrivacyOnlineValue,
+    WAPrivacyValue,
+    WAReadReceiptsValue
 } from '../Types'
 import { ALL_WA_PATCH_NAMES } from '../Types'
 import type { QuickReplyAction } from '../Types/Bussines.js'
 import type { LabelActionBody } from '../Types/Label'
 import { SyncState } from '../Types/State'
 import {
-	chatModificationToAppPatch,
-	type ChatMutationMap,
-	decodePatches,
-	decodeSyncdSnapshot,
-	encodeSyncdPatch,
-	extractSyncdPatches,
-	generateProfilePicture,
-	getHistoryMsg,
-	newLTHashState,
-	processSyncAction
+    chatModificationToAppPatch,
+    type ChatMutationMap,
+    decodePatches,
+    decodeSyncdSnapshot,
+    encodeSyncdPatch,
+    extractSyncdPatches,
+    generateProfilePicture,
+    getHistoryMsg,
+    newLTHashState,
+    processSyncAction
 } from '../Utils'
 import { makeMutex } from '../Utils/make-mutex'
 import processMessage from '../Utils/process-message'
 import { buildTcTokenFromJid } from '../Utils/tc-token-utils'
 import {
-	type BinaryNode,
-	getBinaryNodeChild,
-	getBinaryNodeChildren,
-	jidDecode,
-	jidNormalizedUser,
-	reduceBinaryNodeToDictionary,
-	S_WHATSAPP_NET
+    type BinaryNode,
+    getBinaryNodeChild,
+    getBinaryNodeChildren,
+    jidDecode,
+    jidNormalizedUser,
+    reduceBinaryNodeToDictionary,
+    S_WHATSAPP_NET
 } from '../WABinary'
 import { USyncQuery, USyncUser } from '../WAUSync'
 import { makeSocket } from './socket.js'
