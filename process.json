@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "name": "WA_Profile_Pic",
+      "script": "your-app.js",
+      "node_args": "--experimental-wasm-simd",
+      "watch": false,
+      "autorestart": true,
+      "max_restarts": 10,
+      "restart_delay": 5000
+    }
+  ]
+}
