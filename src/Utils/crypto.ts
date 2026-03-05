@@ -2,7 +2,23 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes }
 import * as curve from 'libsignal/src/curve'
 import { KEY_BUNDLE_TYPE } from '../Defaults'
 import type { KeyPair } from '../Types'
-export { md5, hkdf } from 'whatsapp-rust-bridge'
+import { md5 as md5Fallback, hkdf as hkdfFallback } from './wasm-fallback'
+
+let _md5: typeof md5Fallback
+let _hkdf: typeof hkdfFallback
+
+try {
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const wasm = await import('whatsapp-rust-bridge')
+	_md5 = wasm.md5
+	_hkdf = wasm.hkdf
+} catch{
+	_md5 = md5Fallback
+	_hkdf = hkdfFallback
+}
+
+export const md5 = _md5
+export const hkdf = _hkdf
 
 // insure browser & node compatibility
 const { subtle } = globalThis.crypto

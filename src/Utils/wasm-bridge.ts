@@ -9,19 +9,40 @@
  * This wrapper uses dynamic `import()` so the top-level await is deferred and
  * does not infect the rest of the module graph. The module is cached after the
  * first load so subsequent calls are synchronous.
+ *
+ * If the WASM module fails to load (e.g. on CPUs without SIMD support),
+ * the bridge will remain undefined and callers should handle the absence.
  */
 
 type WasmBridge = typeof import('whatsapp-rust-bridge')
 
 let _bridge: WasmBridge | undefined
+let _loadError: Error | undefined
 
 /**
  * Ensures the WASM bridge is loaded. Must be awaited once before any
  * synchronous helpers (getWasmBridge) are called.
+ *
+ * Returns undefined if the WASM module cannot be loaded (e.g. SIMD not supported).
  */
-export async function loadWasmBridge(): Promise<WasmBridge> {
-	if(!_bridge) {
+export async function loadWasmBridge(): Promise<WasmBridge | undefined> {
+	if(_bridge) {
+		return _bridge
+	}
+
+	if(_loadError) {
+		return undefined
+	}
+
+	try {
 		_bridge = await import('whatsapp-rust-bridge')
+	} catch(err) {
+		_loadError = err as Error
+		console.warn(
+			'[Baileys] whatsapp-rust-bridge WASM module could not be loaded. '
+			+ 'Falling back to pure JS implementations. '
+			+ 'Reason: ' + (err as Error)?.message
+		)
 	}
 
 	return _bridge
@@ -29,15 +50,15 @@ export async function loadWasmBridge(): Promise<WasmBridge> {
 
 /**
  * Returns the already-loaded WASM bridge **synchronously**.
- * Throws if `loadWasmBridge()` has not been awaited yet.
+ * Returns undefined if the module was not loaded or failed to load.
  */
-export function getWasmBridge(): WasmBridge {
-	if(!_bridge) {
-		throw new Error(
-			'whatsapp-rust-bridge has not been initialized. '
-			+ 'Call and await loadWasmBridge() before using WASM functions.'
-		)
-	}
-
+export function getWasmBridge(): WasmBridge | undefined {
 	return _bridge
+}
+
+/**
+ * Returns true if the WASM bridge failed to load.
+ */
+export function wasmBridgeFailed(): boolean {
+	return !!_loadError
 }

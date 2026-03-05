@@ -1,5 +1,5 @@
 import { Boom } from '@hapi/boom'
-import { expandAppStateKeys } from 'whatsapp-rust-bridge'
+import { expandAppStateKeys as expandAppStateKeysFallback } from './wasm-fallback'
 import { proto } from '../../WAProto/index.js'
 import type {
 	BaileysEventEmitter,
@@ -26,6 +26,15 @@ import type { ILogger } from './logger'
 import { LT_HASH_ANTI_TAMPERING } from './lt-hash'
 import { downloadContentFromMessage } from './messages-media'
 import { emitSyncActionResults, processContactAction } from './sync-action-utils'
+
+let expandAppStateKeys: typeof expandAppStateKeysFallback
+
+try {
+	const wasm = await import('whatsapp-rust-bridge')
+	expandAppStateKeys = wasm.expandAppStateKeys as unknown as typeof expandAppStateKeysFallback
+} catch{
+	expandAppStateKeys = expandAppStateKeysFallback
+}
 
 type FetchAppStateSyncKey = (keyId: string) => Promise<proto.Message.IAppStateSyncKeyData | null | undefined>
 
