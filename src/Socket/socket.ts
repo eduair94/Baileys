@@ -662,6 +662,22 @@ export const makeSocket = (config: SocketConfig) => {
 		consecutivePingFailures = 0
 
 		/**
+		 * CONNECTION STABILITY: Notify any pending `waitForMessage` /
+		 * `awaitNextMessage` / `waitForSocketOpen` callers that the
+		 * connection is going away, BEFORE wiping listeners. Otherwise
+		 * those pending queries register `ws.on('close', onErr)` but the
+		 * subsequent `removeAllListeners()` deletes the onErr before the
+		 * native ws.close() emits, leaving them to hang for the full
+		 * `defaultQueryTimeoutMs` (≈60s) on a self-initiated disconnect.
+		 *
+		 * `onErr` defaults to a connectionClosed Boom when err is undefined,
+		 * so pending queries reject immediately with the right error code.
+		 * The top-level `ws.on('close', () => end(...))` re-entry is guarded
+		 * by the `closed=true` flag set above.
+		 */
+		ws.emit('close', error)
+
+		/**
 		 * CONNECTION STABILITY: Remove ALL listeners from the WebSocket,
 		 * not just 'close', 'open', 'message'. The CB: prefixed listeners
 		 * (CB:message, CB:call, CB:receipt, CB:notification, etc.) registered
@@ -785,16 +801,45 @@ export const makeSocket = (config: SocketConfig) => {
 
 				if (ws.isOpen) {
 					try {
-						await query({
-							tag: 'iq',
-							attrs: {
-								id: generateMessageTag(),
-								to: S_WHATSAPP_NET,
-								type: 'get',
-								xmlns: 'w:p'
+						/**
+						 * CONNECTION STABILITY: Tight per-ping timeout. Without it,
+						 * a stalled server (half-open TCP that NAT hasn't reset yet)
+						 * lets each ping hang for the full `defaultQueryTimeoutMs`
+						 * (≈60s). 3-strike detection then takes ~180s. Bound each
+						 * ping to one keepalive interval minus a small margin so a
+						 * failed ping is counted before the next one is scheduled,
+						 * giving a worst-case dead-detection of roughly
+						 * `3 × keepAliveIntervalMs`.
+						 */
+						const pingTimeoutMs = Math.max(5000, keepAliveIntervalMs - 5000)
+
+						const pingResult = await query(
+							{
+								tag: 'iq',
+								attrs: {
+									id: generateMessageTag(),
+									to: S_WHATSAPP_NET,
+									type: 'get',
+									xmlns: 'w:p'
+								},
+								content: [{ tag: 'ping', attrs: {} }]
 							},
-							content: [{ tag: 'ping', attrs: {} }]
-						})
+							pingTimeoutMs
+						)
+
+						/**
+						 * CONNECTION STABILITY: waitForMessage swallows its inner
+						 * timeout and returns undefined instead of throwing. Treat
+						 * a missing pong result as a failed ping — otherwise the
+						 * 3-strike counter would silently reset even though the
+						 * server never answered.
+						 */
+						if (!pingResult) {
+							throw new Boom('Ping response missing', {
+								statusCode: DisconnectReason.timedOut
+							})
+						}
+
 						// Ping succeeded — reset failure counter
 						consecutivePingFailures = 0
 					} catch (err) {
