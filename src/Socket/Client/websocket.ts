@@ -5,6 +5,16 @@ import { AbstractSocketClient } from './types'
 export class WebSocketClient extends AbstractSocketClient {
 	protected socket: WebSocket | null = null
 
+	/**
+	 * CONNECTION STABILITY: Store references to the event forwarding
+	 * functions so they can be removed from the native WebSocket when
+	 * the connection closes. Without this, the native socket holds
+	 * references to `this.emit` which prevents GC of the client and
+	 * all objects it references.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private socketListeners: Map<string, (...args: any[]) => void> = new Map()
+
 	get isOpen(): boolean {
 		return this.socket?.readyState === WebSocket.OPEN
 	}
@@ -36,7 +46,9 @@ export class WebSocketClient extends AbstractSocketClient {
 		const events = ['close', 'error', 'upgrade', 'message', 'open', 'ping', 'pong', 'unexpected-response']
 
 		for (const event of events) {
-			this.socket?.on(event, (...args: any[]) => this.emit(event, ...args))
+			const handler = (...args: any[]) => this.emit(event, ...args)
+			this.socketListeners.set(event, handler)
+			this.socket?.on(event, handler)
 		}
 	}
 
@@ -44,6 +56,27 @@ export class WebSocketClient extends AbstractSocketClient {
 		if (!this.socket) {
 			return
 		}
+
+		/**
+		 * CONNECTION STABILITY: Remove all forwarding listeners from the
+		 * native WebSocket before closing. This ensures no event fires
+		 * after close and breaks the reference chain from the native
+		 * socket back to this client instance.
+		 */
+		for (const [event, handler] of this.socketListeners) {
+			this.socket.removeListener(event, handler)
+		}
+
+		this.socketListeners.clear()
+
+		/**
+		 * CONNECTION STABILITY: Swallow any error the native ws emits
+		 * synchronously during close (e.g. when called before the socket
+		 * finished connecting, ws emits 'error' from inside close()).
+		 * Without this listener, those late errors propagate as Node
+		 * unhandled errors and crash the test runner.
+		 */
+		this.socket.on('error', () => {})
 
 		const closePromise = new Promise<void>(resolve => {
 			this.socket?.once('close', resolve)
