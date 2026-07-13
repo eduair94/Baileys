@@ -101,6 +101,7 @@ export const makeChatsSocket = (config: SocketConfig) => {
 	} = sock
 
 	const getLIDForPN = signalRepository.lidMapping.getLIDForPN.bind(signalRepository.lidMapping)
+	const getKnownLIDForPN = signalRepository.lidMapping.getKnownLIDForPN.bind(signalRepository.lidMapping)
 
 	let privacySettings: { [_: string]: string } | undefined
 
@@ -759,10 +760,12 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		let tcTokenContent: BinaryNode[] | undefined
 
 		if (serverProps.profilePicPrivacyToken && isUserJid && !isSelf) {
+			// Only attach a tctoken we already know about — resolving the PN→LID mapping over
+			// USync just to decorate a profile-picture read is a suspected ban vector.
 			tcTokenContent = await buildTcTokenFromJid({
 				authState,
 				jid: normalizedJid,
-				getLIDForPN
+				getLIDForPN: getKnownLIDForPN
 			})
 		}
 

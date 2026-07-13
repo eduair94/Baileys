@@ -4,9 +4,12 @@ import type { ILogger } from '../Utils/logger'
 import { isHostedPnUser, isLidUser, isPnUser, jidDecode, jidNormalizedUser, WAJIDDomains } from '../WABinary'
 
 export class LIDMappingStore {
+	// PATCH: `max` bounds the cache and `ttlAutopurge: false` drops the per-entry
+	// 3-day timer (TTL is checked lazily on get); evicted entries fall back to the DB.
 	private readonly mappingCache = new LRUCache<string, string>({
-		ttl: 3 * 24 * 60 * 60 * 1000, // 7 days
-		ttlAutopurge: true,
+		max: 10000,
+		ttl: 3 * 24 * 60 * 60 * 1000, // 3 days
+		ttlAutopurge: false,
 		updateAgeOnGet: true
 	})
 	private readonly keys: SignalKeyStoreWithTransaction
@@ -107,6 +110,35 @@ export class LIDMappingStore {
 
 	async getLIDForPN(pn: string): Promise<string | null> {
 		return (await this.getLIDsForPNs([pn]))?.[0]?.lid || null
+	}
+
+	/**
+	 * Resolve a PN→LID mapping from the cache/key store only — never issues a USync.
+	 * Callers that merely enrich a read (e.g. attaching a tctoken to a profile-picture
+	 * query) must not trigger a network PN→LID lookup for it.
+	 */
+	async getKnownLIDForPN(pn: string): Promise<string | null> {
+		if (!isPnUser(pn) && !isHostedPnUser(pn)) return null
+
+		const decoded = jidDecode(pn)
+		if (!decoded) return null
+
+		const pnUser = decoded.user
+		let lidUser = this.mappingCache.get(`pn:${pnUser}`)
+		if (!lidUser) {
+			const stored = await this.keys.get('lid-mapping', [pnUser])
+			const storedLidUser = stored[pnUser]
+			if (typeof storedLidUser === 'string' && storedLidUser) {
+				lidUser = storedLidUser
+				this.mappingCache.set(`pn:${pnUser}`, lidUser)
+				this.mappingCache.set(`lid:${lidUser}`, pnUser)
+			}
+		}
+
+		if (!lidUser) return null
+
+		const pnDevice = decoded.device !== undefined ? decoded.device : 0
+		return `${lidUser}${!!pnDevice ? `:${pnDevice}` : ''}@${decoded.server === 'hosted' ? 'hosted.lid' : 'lid'}`
 	}
 
 	async getLIDsForPNs(pns: string[]): Promise<LIDMapping[] | null> {
