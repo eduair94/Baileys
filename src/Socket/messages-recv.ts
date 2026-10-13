@@ -552,7 +552,9 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	}
 
 	const sendMessageAck = async (node: BinaryNode, errorCode?: number) => {
-		const stanza = buildAckStanza(node, errorCode, authState.creds.me!.id)
+		// creds.me is unset until login completes; acks during pairing must not throw (a throw here
+		// now closes the socket via the failed-ack handler and kills the in-flight pairing)
+		const stanza = buildAckStanza(node, errorCode, authState.creds.me?.id)
 		logger.debug({ recv: { tag: node.tag, attrs: node.attrs }, sent: stanza.attrs }, 'sent ack')
 		await sendNode(stanza)
 	}
@@ -2096,6 +2098,10 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	registerSocketEndHandler(() => {
 		if (!config.msgRetryCounterCache && msgRetryCache.close) {
 			msgRetryCache.close()
+		}
+
+		if (!config.msgRetryResendCache && msgRetryResendCache.close) {
+			msgRetryResendCache.close()
 		}
 
 		if (!config.callOfferCache && callOfferCache.close) {
