@@ -14,6 +14,7 @@ describe('USync username decoding', () => {
 		for (const content of ['example.user', Buffer.from('example.user'), new Uint8Array(Buffer.from('example.user'))]) {
 			expect(protocol.parser({ tag: 'username', attrs: {}, content })).toBe('example.user')
 		}
+
 		expect(protocol.parser({ tag: 'username', attrs: { name: 'Display name' } })).toBeNull()
 		expect(protocol.parser({ tag: 'notify', attrs: {}, content: 'Display name' })).toBeNull()
 	})
